@@ -2,6 +2,9 @@ CanvasGrid canvas;
 int prevGridX;
 int prevGridY;
 
+//global buttons
+Button btn, btn2;
+
 void setup() {
   
   // This is completely arbitrary as this point
@@ -9,15 +12,32 @@ void setup() {
   // static resolution changes would probably be best
   size(868, 868);
   
+  btn = new Button(600, 50, 80, 20 , "Undo", color(100, 100, 100), 20);
+  btn2 = new Button(685, 50, 80, 20, "Cursor: Arrow", color(100, 100, 100),20);
+  
   // rows, cols, cellsize, xoffset, yoffset, gridlines, gridlinespacing
   // these will need to be abstracted to variables so they can be modified during runtime
-  canvas = new CanvasGrid(256, 265, 2, 50, 50, true, 8);
+  
+  canvas = new CanvasGrid(256, 256, 2, 50, 50, true, 8);
 }
 
 void draw() {
   background(255);
+  //undo change if clicked - for some reason, I have to hold my left mouse button longer than you'd think for it to pop, but it does undo a change, holding it undoes many changes in order
+    if(btn.isClicked()){
+      canvas.undoChange();
+      
+    }
+    
+  //need for every button created
+  btn.update();
+  btn.display();
+  btn2.update();
+  btn2.display();
+  
   canvas.displayBackground(color(180), color(220));
   canvas.displayGrid();
+
 
 }
 
@@ -33,6 +53,7 @@ void mousePressed() {
   
   prevGridX = x;
   prevGridY = y;
+
 }
 
 void mouseDragged() {
@@ -77,5 +98,15 @@ void drawLineBetween(int x0, int y0, int x1, int y1, color brushColor) {
 void keyPressed() {
   if (key == 'z') {
     canvas.undoChange();
+  }
+  //change mouse to cross
+  if (key == 'q'){
+    btn2.label = "Cursor: Cross";
+    cursor(CROSS);
+  }
+  //change mouse back to normal
+  if (key == 'n'){
+   btn2.label = "Cursor: Arrow";  
+   cursor(ARROW);
   }
 }
