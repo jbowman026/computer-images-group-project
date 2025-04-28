@@ -49,7 +49,7 @@ class CanvasGrid {
   // Methods to set and get pixel colors
   void setPixel(int x, int y, color c) {
     if (isInBounds(x, y)) {
-      pixels[y][x] = c;
+      pixels[x][y] = c;
     }
   }
   
@@ -76,7 +76,7 @@ class CanvasGrid {
     noStroke();
     for (int y = 0; y < rows; y++) {
       for (int x = 0; x < cols; x++) {
-        fill(pixels[y][x]);
+        fill(pixels[x][y]);
         rect(x * cellSize + gridOffsetX, y * cellSize + gridOffsetY, cellSize, cellSize);
       }
     }

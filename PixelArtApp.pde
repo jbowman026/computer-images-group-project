@@ -11,7 +11,7 @@ void setup() {
   
   // rows, cols, cellsize, xoffset, yoffset, gridlines, gridlinespacing
   // these will need to be abstracted to variables so they can be modified during runtime
-  canvas = new CanvasGrid(256, 265, 2, 50, 50, true, 8);
+  canvas = new CanvasGrid(256, 180, 4, 50, 50, true, 8);
 }
 
 void draw() {
