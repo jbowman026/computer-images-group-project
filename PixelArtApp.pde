@@ -1,6 +1,10 @@
+import java.util.ArrayList;
+
 CanvasGrid canvas;
+Palette palette;
 int prevGridX;
 int prevGridY;
+color currentColor;
 
 //global buttons
 Button btn, btn2;
@@ -18,7 +22,9 @@ void setup() {
   // rows, cols, cellsize, xoffset, yoffset, gridlines, gridlinespacing
   // these will need to be abstracted to variables so they can be modified during runtime
   
-  canvas = new CanvasGrid(256, 256, 2, 50, 50, true, 8);
+  canvas = new CanvasGrid(128, 128, 4, 50, 50, true, 8);
+  
+  palette = new Palette(color(0,0,0), 600, 200);
 }
 
 void draw() {
@@ -37,19 +43,31 @@ void draw() {
   
   canvas.displayBackground(color(180), color(220));
   canvas.displayGrid();
+  
+  palette.displayPalette();
 
 
 }
 
 void mousePressed() {
   
-  // Stores the previous canvas state before the new brush stroke occurs
-  canvas.storeChange();
+  if (palette.paletteClicked(mouseX, mouseY)) {
+    palette.selectColor(mouseX, mouseY);
+    currentColor = palette.getCurrentColor();
+    return;
+  }
   
   // Converting mouse position on screen to position within the canvas
   int x = canvas.screenToGridX(mouseX);
   int y = canvas.screenToGridY(mouseY);
-  canvas.setPixel(x, y, color(0, 0, 255));
+  
+  // Stores the previous canvas state before the new brush stroke occurs
+  // Only stores change if the mouse press is within the bounds of the canvas
+  if (canvas.isInBounds(x, y)) {
+    canvas.storeChange();
+  }
+  
+  canvas.setPixel(x, y, currentColor);
   
   prevGridX = x;
   prevGridY = y;
@@ -62,7 +80,7 @@ void mouseDragged() {
   int x = canvas.screenToGridX(mouseX);
   int y = canvas.screenToGridY(mouseY);
 
-  drawLineBetween(prevGridX, prevGridY, x, y, color(0, 0, 255));
+  drawLineBetween(prevGridX, prevGridY, x, y, currentColor);
   //canvas.setPixel(x, y, color(0, 0, 255));
    
   prevGridX = x;
