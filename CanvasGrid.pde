@@ -59,6 +59,11 @@ class CanvasGrid {
     }
     return color(0); // Default for out of bounds
   }
+  
+  void setSize(int x, int y) {
+    cols = x;
+    rows = y;
+  }
     
   // Boolean to define if a mouse click is within the bounds of the grid
   boolean isInBounds(int x, int y) {
