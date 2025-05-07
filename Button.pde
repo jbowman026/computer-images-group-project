@@ -1,56 +1,30 @@
-/*
-Button class for gui controls
-
-*/
-class Button {
-  PVector pos;
-  float w, h;
-  color btnColor;
+class myButton {
+  float x, y, w, h; //position and dimensions
   String label;
-  int radius;
-  Boolean inBounds = false, clicked = false;
-  
-  
-  Button(int x, int y, int w, int h, String lbl, color Color, int rad){
-  pos = new PVector(x, y);
-  this.w = w;
-  this.h = h;
-  label = lbl;
-  btnColor = Color;
-  radius = rad;
+  boolean wasPressed = false; //tracks previous state
+
+  myButton(float x, float y, float w, float h, String label) {
+    this.x = x;
+    this.y = y;
+    this.w = w;
+    this.h = h;
+    this.label = label;
+  } //constructor 
+
+  // Returns true ONLY on the initial press
+  boolean isClicked() {
+    boolean isOver = (mouseX >= x && mouseX <= x + w && 
+                     mouseY >= y && mouseY <= y + h);
+    boolean isClick = isOver && mousePressed && !wasPressed;
+    wasPressed = mousePressed; // Update state
+    return isClick;
   }
-  
-  //confirm that button is clicked
-  boolean isClicked(){
-    return clicked;
+
+  void display() {
+    fill(isClicked() ? color(150) : color(100)); 
+    rect(x, y, w, h, 5);
+    fill(255);
+    textAlign(CENTER, CENTER);
+    text(label, x + w/2, y + h/2);
   }
-  
-  //place within draw to continuously track for clicks on the button
-  void update(){
-    float xpos = pos.x, ypos = pos.y;  //hold PVector positions
-    
-    //verify if mouse is on the button and user is clicking within it
-    if(mousePressed && !inBounds){
-      inBounds = true;
-      if(mouseX >= xpos && mouseX <= xpos + w && mouseY >= ypos && mouseY <= ypos + h){
-        clicked = true;
-      }
-    } else inBounds = clicked = false;
-  }
-  
-  void display(){
-  float adjW = w/2, adjH = h/2;
-  
-  fill(btnColor);
-  
-  //place button details inside of rectangle
-  rect(pos.x, pos.y, w, h, radius);
-  fill(0);
-  
-  //centering text within button
-  textAlign(CENTER, CENTER);
-  textSize(12);
-  text(label, pos.x + adjW, pos.y + adjH);
-  }
-  
 }

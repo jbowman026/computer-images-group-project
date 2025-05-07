@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.io.File;
 
 CanvasGrid canvas;
 Palette palette;
@@ -6,91 +7,114 @@ int prevGridX;
 int prevGridY;
 color currentColor;
 
-//global buttons
-Button btn, btn2;
+// global buttons
+myButton btnUndo, btnCursor, btnSave, btnLoad;
+int cursorMode = ARROW; // can be ARROW, CROSS, or other cursor types
+boolean lockDrawing = false; // prevents stray lines when interacting with UI
+String defaultSavePath;       // defaults to Downloads
 
 void setup() {
-  
-  // This is completely arbitrary as this point
-  // will need to add screen resizing later
-  // static resolution changes would probably be best
-  size(868, 868);
-  
-  btn = new Button(600, 50, 80, 20 , "Undo", color(100, 100, 100), 20);
-  btn2 = new Button(685, 50, 80, 20, "Cursor: Arrow", color(100, 100, 100),20);
-  
-  // rows, cols, cellsize, xoffset, yoffset, gridlines, gridlinespacing
-  // these will need to be abstracted to variables so they can be modified during runtime
-  
+  size(868, 868); // TODO: make this dynamic
+  defaultSavePath = getDownloadsPath();
+
+  // buttons
+  btnUndo   = new myButton(600, 50,  80, 30, "Undo");
+  btnCursor = new myButton(690, 50, 120, 30, "Cursor: Arrow");
+  btnSave   = new myButton(600, 90,  80, 30, "Save");
+  btnLoad   = new myButton(690, 90,  80, 30, "Load");
+
+  // rows, cols, cell size, x offset, y offset, showGrid, gridSpacing
   canvas = new CanvasGrid(128, 128, 4, 50, 50, true, 8);
-  
-  palette = new Palette(color(0,0,0), 600, 200);
+
+  palette = new Palette(color(0, 0, 0), 600, 200);
+  currentColor = palette.getCurrentColor();
 }
 
 void draw() {
   background(255);
-  //undo change if clicked - for some reason, I have to hold my left mouse button longer than you'd think for it to pop, but it does undo a change, holding it undoes many changes in order
-    if(btn.isClicked()){
-      canvas.undoChange();
-      
-    }
-    
-  //need for every button created
-  btn.update();
-  btn.display();
-  btn2.update();
-  btn2.display();
-  
+
+  // reset press state each frame
+  btnUndo.wasPressed   = mousePressed;
+  btnCursor.wasPressed = mousePressed;
+  btnSave.wasPressed   = mousePressed;
+  btnLoad.wasPressed   = mousePressed;
+
+  // draw UI
+  btnUndo.display();
+  btnCursor.display();
+  btnSave.display();
+  btnLoad.display();
+
   canvas.displayBackground(color(180), color(220));
   canvas.displayGrid();
-  
   palette.displayPalette();
-
-
 }
 
+/* ---------- Mouse & keyboard ---------- */
+
 void mousePressed() {
-  
+  // palette selection first
   if (palette.paletteClicked(mouseX, mouseY)) {
     palette.selectColor(mouseX, mouseY);
     currentColor = palette.getCurrentColor();
+    lockDrawing = true; // ignore subsequent drag
     return;
   }
-  
-  // Converting mouse position on screen to position within the canvas
+
+  // buttons
+  boolean undoClicked   = btnUndo.isClicked();
+  boolean cursorClicked = btnCursor.isClicked();
+  boolean saveClicked   = btnSave.isClicked();
+  boolean loadClicked   = btnLoad.isClicked();
+
+  if (undoClicked) {
+    canvas.undoChange();
+    lockDrawing = true;
+    return;
+  }
+  if (cursorClicked) {
+    toggleCursorMode();
+    lockDrawing = true;
+    return;
+  }
+  if (saveClicked) {
+    saveDrawing();
+    lockDrawing = true;
+    return;
+  }
+  if (loadClicked) {
+    loadDrawing();
+    lockDrawing = true;
+    return;
+  }
+
+  // drawing
+  lockDrawing = false;
+
   int x = canvas.screenToGridX(mouseX);
   int y = canvas.screenToGridY(mouseY);
-  
-  // Stores the previous canvas state before the new brush stroke occurs
-  // Only stores change if the mouse press is within the bounds of the canvas
+
   if (canvas.isInBounds(x, y)) {
     canvas.storeChange();
+    canvas.setPixel(x, y, currentColor);
+    prevGridX = x;
+    prevGridY = y;
   }
-  
-  canvas.setPixel(x, y, currentColor);
-  
-  prevGridX = x;
-  prevGridY = y;
-
 }
 
 void mouseDragged() {
-  
-  // Converting mouse position on screen to position within the canvas
+  if (lockDrawing) return;
+
   int x = canvas.screenToGridX(mouseX);
   int y = canvas.screenToGridY(mouseY);
 
   drawLineBetween(prevGridX, prevGridY, x, y, currentColor);
-  //canvas.setPixel(x, y, color(0, 0, 255));
-   
+
   prevGridX = x;
   prevGridY = y;
 }
 
-// Don't even ask me, I got this one entirely online (Bresenham's Line Alg)
-// It works better than just calling setPixel during mouseDragged because
-// it fills in every cell between two mouse positions whereas the former
-// method relies on OS mouse events which results in some cells being skipped over
+// Bresenham's line algorithm
 void drawLineBetween(int x0, int y0, int x1, int y1, color brushColor) {
   int dx = abs(x1 - x0);
   int dy = abs(y1 - y0);
@@ -114,17 +138,100 @@ void drawLineBetween(int x0, int y0, int x1, int y1, color brushColor) {
 }
 
 void keyPressed() {
-  if (key == 'z') {
-    canvas.undoChange();
-  }
-  //change mouse to cross
-  if (key == 'q'){
-    btn2.label = "Cursor: Cross";
+  if (key == 'z' || key == 'Z') { canvas.undoChange(); return; }
+  if (key == 'q' || key == 'Q') { toggleCursorMode(); return; }
+  if (key == 's' || key == 'S') { saveDrawing(); return; }
+  if (key == 'l' || key == 'L') { loadDrawing(); return; }
+}
+
+void toggleCursorMode() {
+  if (cursorMode == ARROW) {
+    cursorMode = CROSS;
+    btnCursor.label = "Cursor: Cross";
     cursor(CROSS);
+  } else {
+    cursorMode = ARROW;
+    btnCursor.label = "Cursor: Arrow";
+    cursor(ARROW);
   }
-  //change mouse back to normal
-  if (key == 'n'){
-   btn2.label = "Cursor: Arrow";  
-   cursor(ARROW);
+}
+
+String getDownloadsPath() {
+  String os = System.getProperty("os.name").toLowerCase();
+  String home = System.getProperty("user.home");
+
+  if (os.contains("win")) {
+    return home + "\\Downloads\\";
+  } else if (os.contains("mac")) {
+    return home + "/Downloads/";
+  } else {
+    return home + "/Downloads/";
   }
+}
+
+void saveDrawing() {
+  String timestamp = nf(year(),4) + nf(month(),2) + nf(day(),2) + "_" +
+                     nf(hour(),2) + nf(minute(),2);
+  String defaultName = "pixelart_" + timestamp + ".png";
+
+  selectOutput("Save PNG:", "saveImageCallback",
+               new File(defaultSavePath + defaultName));
+}
+
+void saveImageCallback(File selection) {
+  if (selection == null) return;
+
+  String path = selection.getAbsolutePath();
+  if (!path.toLowerCase().endsWith(".png")) {
+    path += ".png";
+    selection = new File(path);
+  }
+
+  PImage img = createCanvasImage();
+  img.save(path);
+  println("Saved to: " + path);
+}
+
+PImage createCanvasImage() {
+  PImage img = createImage(canvas.cols, canvas.rows, ARGB);
+  img.loadPixels();
+  for (int y = 0; y < canvas.rows; y++) {
+    for (int x = 0; x < canvas.cols; x++) {
+      color c = canvas.getPixel(x, y);
+      img.pixels[y * canvas.cols + x] = c;
+    }
+  }
+  img.updatePixels();
+  return img;
+}
+
+void loadDrawing() {
+  String downloadsPath = System.getProperty("user.home") + "\\Downloads\\";
+  File dummy = new File(downloadsPath + "dummy.pde");
+  try { dummy.createNewFile(); } catch (Exception e) { }
+  selectInput("Load PNG Image:", "handleImageUpload", dummy);
+  dummy.delete();
+}
+
+void handleImageUpload(File selection) {
+  if (selection == null) return;
+
+  PImage img = loadImage(selection.getAbsolutePath());
+  if (img == null) return;
+
+  if (img.format != ARGB) {
+    PImage temp = createImage(img.width, img.height, ARGB);
+    temp.copy(img, 0, 0, img.width, img.height, 0, 0, img.width, img.height);
+    img = temp;
+  }
+
+  for (int y = 0; y < img.height; y++) {
+    for (int x = 0; x < img.width; x++) {
+      color pixel = img.get(x, y);
+      if (alpha(pixel) > 0) {
+        canvas.setPixel(x, y, pixel);
+      }
+    }
+  }
+  println("Loaded: " + selection.getName());
 }
