@@ -1,108 +1,200 @@
+// CSC-545 Group Project
+// Contributors: Jayden Bowman, Cooper Brown, Eric Morgan
+
 import java.util.ArrayList;
 import java.io.File;
 
 CanvasGrid canvas;
 Palette palette;
 FileManager fileManager;
+ToolManager toolManager;
+
 int prevGridX;
 int prevGridY;
 color currentColor;
 
 // global buttons
-Button btnUndo, btnCursor, btnSave, btnLoad;
-int cursorMode = ARROW; // can be ARROW, CROSS, or other cursor types
+Button btnUndo, btnRedo, btnCursor, btnSave, btnLoad;
+Button btnBrush, btnLine, btnErase, btnFill, btnPick;
+
+int cursorMode = ARROW; // can be ARROW or CROSS
 boolean lockDrawing = false; // prevents stray lines when interacting with UI
-String defaultSavePath;       // defaults to Downloads
+String defaultSavePath; // defaults to Downloads
+
 
 void setup() {
-  size(868, 868); // TODO: make this dynamic
   
-  canvas = new CanvasGrid(64, 64, 8, 50, 50, true, 8);
-  palette = new Palette(color(0, 0, 0), 600, 200);
-  fileManager = new FileManager(this, canvas, palette); 
-  
-  defaultSavePath = fileManager.getDownloadsPath();
+  size(968, 868);
 
-  // buttons
-  btnUndo   = new Button(600, 50,  80, 30, "Undo");
-  btnCursor = new Button(690, 50, 120, 30, "Cursor: Arrow");
-  btnSave   = new Button(600, 90,  80, 30, "Save");
-  btnLoad   = new Button(690, 90,  80, 30, "Load");
+  // Setting up the canvas
+  int cols = 64;
+  int rows = 64;
+  int desiredSz = 512; // canvas will be around 512*512 on screen
+  int cellSize = min(desiredSz/cols, desiredSz/rows); // Canvas size remains constant with different pixel densities
+  int canvasW = cols*cellSize;
+  int canvasH = rows*cellSize;
+  int gridX = (width  - canvasW)/2;
+  int gridY = (height - canvasH)/2;
+
+  // Initializing objects
+  canvas = new CanvasGrid(cols, rows, cellSize, gridX, gridY, true, 8);
+  palette = new Palette(color(0), 0, 0); // placeholder
+  fileManager = new FileManager(this, canvas, palette);
+  toolManager = new ToolManager();
+  currentColor = palette.getCurrentColor();
+
+  // Common spacing values
+  int margin = 20;
+  int gap    = 10;
+  int btnH   = 30;
+
+  // tool selection 
+  int toolW = 120;
+  int toolX = gridX - toolW - margin;
+  int ty = gridY;
+  btnBrush = new Button(toolX, ty, toolW, btnH, "Brush");
+  btnLine = new Button(toolX, ty+=btnH+gap, toolW, btnH, "Line");
+  btnErase = new Button(toolX, ty+=btnH+gap, toolW, btnH, "Erase");
+  btnFill = new Button(toolX, ty+=btnH+gap, toolW, btnH, "Fill");
+  btnPick = new Button(toolX, ty+=btnH+gap, toolW, btnH, "Picker");
+
+  // commands and palette
+  int cmdW = 80;
+  int rightX = gridX + canvasW + margin;
+  int rightX2 = rightX + cmdW + gap;
+  int cy = gridY;
+
+  // Undo / Redo
+  btnUndo = new Button(rightX,  cy, cmdW, btnH, "Undo");
+  btnRedo = new Button(rightX2, cy, cmdW, btnH, "Redo");
+
+  // Save / Load
+  cy += btnH + gap;
+  btnSave = new Button(rightX, cy, cmdW, btnH, "Save");
+  btnLoad = new Button(rightX2, cy, cmdW, btnH, "Load");
+
+  // Cursor toggle
+  cy += btnH + gap;
+  btnCursor = new Button(rightX, cy, cmdW*2 + gap, btnH, "Cursor: Arrow");
+
+  // Palette spacing
+  palette.offsetX = rightX;
+  palette.offsetY = cy + btnH + (2*gap);
 }
 
 void draw() {
   background(255);
 
-  // draw UI
+  // display command buttons
   btnUndo.display();
+  btnRedo.display();
   btnCursor.display();
   btnSave.display();
   btnLoad.display();
+  
+  // display tool buttons
+  btnBrush.display();
+  btnLine.display();
+  btnErase.display();
+  btnFill.display();
+  btnPick.display();
 
+  // display canvas and palette
   canvas.displayBackground(color(180), color(220));
   canvas.displayGrid();
   palette.displayPalette();
 }
 
-/* ---------- Mouse & keyboard ---------- */
-
 void mousePressed() {
+  
+  // handle button presses
+  btnBrush.mousePressed();
+  btnLine.mousePressed();
+  btnErase.mousePressed();
+  btnFill.mousePressed();
+  btnPick.mousePressed();
+  
+  btnUndo.mousePressed();
+  btnRedo.mousePressed();
+  btnCursor.mousePressed();
+  btnSave.mousePressed();
+  btnLoad.mousePressed();
   
   // if the palette is selected
   if (palette.paletteClicked(mouseX, mouseY)) {
     palette.selectColor(mouseX, mouseY);
     currentColor = palette.getCurrentColor();
-    lockDrawing = true; // ignore subsequent drag
+    toolManager.setTool(toolManager.currentType);
+    lockDrawing = true; // ignore further drag
     return;
   }
   
+  // Match the position of the click on screen to the pixel on the canvas
   int x = canvas.screenToGridX(mouseX);
   int y = canvas.screenToGridY(mouseY);
   
   // if the canvas is selected
   if (canvas.isInBounds(x, y)) {
-    canvas.storeChange();
-    canvas.setPixel(x, y, currentColor);
-    prevGridX = x;
-    prevGridY = y;
+    toolManager.current().onPress(x, y);
+    prevGridX = x; prevGridY = y;
   }
   
-  btnUndo.mousePressed();
-  btnCursor.mousePressed();
-  btnSave.mousePressed();
-  btnLoad.mousePressed();
-  
-  // drawing
   lockDrawing = false;
 }
 
 void mouseDragged() {
+  
   if (lockDrawing) return;
 
-  int x = canvas.screenToGridX(mouseX);
-  int y = canvas.screenToGridY(mouseY);
-
-  drawLineBetween(prevGridX, prevGridY, x, y, currentColor);
-
-  prevGridX = x;
-  prevGridY = y;
+  int gx = canvas.screenToGridX(mouseX);
+  int gy = canvas.screenToGridY(mouseY);
+  if (canvas.isInBounds(gx, gy)) {
+    toolManager.current().onDrag(gx, gy);
+  }
 }
 
 void mouseReleased() {
   // react only when a full click is completed
   if (btnUndo.mouseReleased())   { canvas.undoChange(); lockDrawing = true; }
+  if (btnRedo.mouseReleased())   { canvas.redoChange(); lockDrawing = true; }
   if (btnCursor.mouseReleased()) { toggleCursorMode();  lockDrawing = true; }
-  if (btnSave.mouseReleased())   { fileManager.saveDrawing();               lockDrawing = true; }
+  if (btnSave.mouseReleased())   { fileManager.saveDrawing(); lockDrawing = true; }
   if (btnLoad.mouseReleased())   { canvas.storeChange(); fileManager.loadDrawing(); lockDrawing = true; }
-
-  /* palette / canvas release logic (if any) */
+  
+  if (btnBrush.mouseReleased()) toolManager.setTool(ToolType.BRUSH);
+  if (btnLine .mouseReleased()) toolManager.setTool(ToolType.LINE);
+  if (btnErase.mouseReleased()) toolManager.setTool(ToolType.ERASE);
+  if (btnFill .mouseReleased()) toolManager.setTool(ToolType.FILL);
+  if (btnPick .mouseReleased()) toolManager.setTool(ToolType.PICKER);
+  
+  int gx = canvas.screenToGridX(mouseX);
+  int gy = canvas.screenToGridY(mouseY);
+  if (canvas.isInBounds(gx, gy))
+    toolManager.current().onRelease(gx, gy);
 }
 
 void keyPressed() {
-  if (key == 'z' || key == 'Z') { canvas.undoChange(); return; }
-  if (key == 'q' || key == 'Q') { toggleCursorMode(); return; }
-  if (key == 's' || key == 'S') {fileManager.saveDrawing(); return; }
-  if (key == 'l' || key == 'L') { fileManager.loadDrawing(); return; }
+  
+  // using switch cases here because they're better
+  switch (key) {
+    // tools
+    case 'b': case 'B': toolManager.setTool(ToolType.BRUSH); break;
+    case 'i': case 'I': toolManager.setTool(ToolType.LINE); break; 
+    case 'e': case 'E': toolManager.setTool(ToolType.ERASE); break;
+    case 'f': case 'F': toolManager.setTool(ToolType.FILL); break;
+    case 'p': case 'P': toolManager.setTool(ToolType.PICKER); break;
+
+    // undo / redo
+    case 'z': case 'Z': canvas.undoChange(); break;
+    case 'y': case 'Y': canvas.redoChange(); break; 
+
+    // save / load
+    case 's': case 'S': fileManager.saveDrawing(); break;
+    case 'l': case 'L': fileManager.loadDrawing(); break;
+
+    // cursor toggle
+    case 'c': case 'C': toggleCursorMode(); break;
+  }
 }
 
 void toggleCursorMode() {
@@ -117,35 +209,13 @@ void toggleCursorMode() {
   }
 }
 
-// Bresenham's line algorithm
-void drawLineBetween(int x0, int y0, int x1, int y1, color brushColor) {
-  int dx = abs(x1 - x0);
-  int dy = abs(y1 - y0);
-  int sx = x0 < x1 ? 1 : -1;
-  int sy = y0 < y1 ? 1 : -1;
-  int err = dx - dy;
-
-  while (true) {
-    canvas.setPixel(x0, y0, brushColor);
-    if (x0 == x1 && y0 == y1) break;
-    int e2 = 2 * err;
-    if (e2 > -dy) {
-      err -= dy;
-      x0 += sx;
-    }
-    if (e2 < dx) {
-      err += dx;
-      y0 += sy;
-    }
-  }
-}
-
-// ----  NEW: public callbacks that Processing can see  ----
+// public callbacks for the saving and uploading image functions
+// so the main sketch can use them
 public void saveImageCallback(File f) {
   println("[wrapper] got file =", f);
-  fileManager.saveImageCallback(f);   // just relay to helper
+  fileManager.saveImageCallback(f);
 }
 
 public void handleImageUpload(File f) {
-  fileManager.handleImageUpload(f);   // just relay to helper
+  fileManager.handleImageUpload(f);
 }

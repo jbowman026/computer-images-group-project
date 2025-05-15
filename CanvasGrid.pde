@@ -5,13 +5,16 @@ class CanvasGrid {
   
   // Declaring variables for number of rows and columns in the grid,
   // the size of each cell in the grid,
-  // and the color of each grid cell
+  // the color of each grid cell,
+  // and the width and height of the canvas
   int rows, cols;
   int cellSize;
   color[][] pixels;
+  int pixelWidth, pixelHeight;
   
-  //This a stack of 2d array of color type that will hold brush stroke history
+  //These are stacks of 2d arrays of color type that will hold brush stroke history and undo history respectively
   Stack<color[][]> changeHistory;
+  Stack<color[][]> undoHistory;
   
   // Variables to define how far from the left and top of the screen the grid is
   int gridOffsetX; 
@@ -35,6 +38,7 @@ class CanvasGrid {
     
     pixels = new color[cols][rows];
     changeHistory = new Stack<color[][]>();
+    undoHistory = new Stack<color[][]>();  
     
     // initializing pixels as transparent
     for (int x = 0; x < cols; x++) {
@@ -43,7 +47,10 @@ class CanvasGrid {
       }
     }
     // This will never be popped
-    changeHistory.push(pixels);
+    changeHistory.push(clonePixels());
+    
+    pixelWidth  = cols * cellSize;
+    pixelHeight = rows * cellSize;
   }
   
   // Methods to set and get pixel colors
@@ -60,9 +67,23 @@ class CanvasGrid {
     return color(0); // Default for out of bounds
   }
   
-  void setSize(int x, int y) {
-    cols = x;
-    rows = y;
+  void setDensity(int newCols, int newRows) {
+    // update cols/rows
+    cols = newCols;
+    rows = newRows;
+  
+    // pick the biggest square cell that still fits the original area
+    cellSize = min(pixelWidth / cols, pixelHeight / rows);
+  
+    // rebuild the pixel array to match the new dimensions
+    pixels = new color[cols][rows];
+    for (int x = 0; x < cols; x++) {
+      for (int y = 0; y < rows; y++) {
+        pixels[x][y] = color(255,255,255,0);
+      }
+    }
+    // Recenter the canvas in the case of images with different aspect ratios
+    recenter();
   }
     
   // Boolean to define if a mouse click is within the bounds of the grid
@@ -101,7 +122,7 @@ class CanvasGrid {
   
   void displayBackground(color c1, color c2) {
     
-    // Logic to make a checkerboard pattern for the background
+    // Logic to make a checkerboard pattern for the background of the canvas
     for (int y = 0; y < rows * 2; y++) {
       for (int x = 0; x < cols * 2; x++) {
 
@@ -125,23 +146,47 @@ class CanvasGrid {
     return floor((screenY - gridOffsetY) / cellSize);
   }
   
-  void storeChange() { 
-    color[][] oldPixels = new color[cols][rows];
-    
-    // Hard copying each pixel value to the canvas to be saved in memory
-    for (int x = 0; x < cols; x++) {
-      for (int y = 0; y < rows; y++) {
-        oldPixels[x][y] = pixels[x][y];
-      }
+  void undoChange() {
+    if (changeHistory.size() > 1) { // keep the earliest snapshot
+      color[][] current = changeHistory.pop(); // remove curent frame
+      undoHistory.push(current); // save it for redo
+  
+      setPixels(changeHistory.peek()); // draw the new top
     }
-    changeHistory.push(oldPixels);
+  }
+  
+  void redoChange() {
+    if (!undoHistory.isEmpty()) {
+      color[][] redo = undoHistory.pop(); // take next redo frame
+      changeHistory.push(redo); // put it back on main stack
+      setPixels(redo); // draw it
+    }
+  }
+  
+  // store a copy of the most recent change and clear redo
+  void storeChange() {
+    changeHistory.push(clonePixels()); // clone current pixels
+    undoHistory.clear(); // invalidate redo chain
+  }
+  
+  // creates a perfect copy of the current canvas state
+  color[][] clonePixels() {
+    color[][] cp = new color[cols][rows];
+    for (int x = 0; x < cols; x++) {
+      arrayCopy(pixels[x], cp[x]); 
+    }
+    return cp;
   }
 
-  void undoChange() {
-    
-    // Takes the previous canvas from the stack and applies it to the current canvas
-    if (changeHistory.size() > 1) {
-      pixels = changeHistory.pop();
+  // replaces the whole pixel array
+  void setPixels(color[][] src) {
+    for (int x = 0; x < cols; x++) {
+      arrayCopy(src[x], pixels[x]);
     }
+  }
+  
+  void recenter() {
+    gridOffsetX = (width  - cols*cellSize) / 2;
+    gridOffsetY = (height - rows*cellSize) / 2;
   }
 }

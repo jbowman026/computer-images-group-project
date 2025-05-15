@@ -38,14 +38,14 @@ class FileManager {
     println("[helper] selection =", selection);
     if (selection == null) return;
     
-    
+    // call the upscale prompt
     int factor = promptUpscale();
     println("[helper] factor chosen =", factor);
     
     String path = selection.getAbsolutePath();
     if (!path.toLowerCase().endsWith(".png")) path += ".png";
     
-    
+    // save the image
     PImage upImg = upscaleCanvas(factor);
     upImg.save(path);
     
@@ -97,8 +97,8 @@ class FileManager {
     color[] imgPalette = new color[paletteSize];
     PImage qImg = quantize(img, paletteSize, imgPalette);
     
-    // Resize the canvas to fit the image
-    cg.setSize(targetW, targetH);
+    // Change the canvases pixel density to the target
+    cg.setDensity(targetW, targetH);
     
     // The resized and quantized image is painted onto the grid
     for (int y = 0; y < targetH && y < cg.rows; y++) {
@@ -331,6 +331,8 @@ class FileManager {
   
   // GUI prompt for when the user saves, asking how much they'd like to upscale their image
   int promptUpscale() {
+    
+    // options for upscaling the image
     String[] opts = { "2×", "4×", "8×", "16×", "32×", "64×" };
     java.awt.Component win = (java.awt.Component) parent.getSurface().getNative();
     Object choice = javax.swing.JOptionPane.showInputDialog(
@@ -342,12 +344,14 @@ class FileManager {
           opts,
           opts[0]);
     println("[prompt] choice =", choice);
-    if (choice == null) return -1;          // user hit cancel
+    if (choice == null) return -1; // if user hits cancel
     return Integer.parseInt(((String) choice).replace("×",""));
   }
   
+  // function to increase the size of the image when saving while retaining the exact same image
   PImage upscaleCanvas(int factor) {
     
+    // big is the same aspect ratio as small with the amount of pixels being scaled by the factor
     PImage small = createCanvasImage();
     PImage big = createImage(small.width * factor, small.height * factor, ARGB);
     

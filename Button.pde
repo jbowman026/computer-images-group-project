@@ -1,3 +1,5 @@
+// A basic button GUI component so the user can select tools and other features
+
 class Button {
   float x, y, w, h;
   String label;
@@ -5,38 +7,39 @@ class Button {
   // true while the mouse button is held down and the press began inside this button
   boolean armed = false;
 
-  // basic colours – tweak as you like
+  // colors for the button
   color idle  = color(100);
   color hover = color(120);
   color down  = color(150);
-
+  
+  // constructor
   Button(float x, float y, float w, float h, String label) {
     this.x = x; this.y = y; this.w = w; this.h = h; this.label = label;
   }
 
-  // ----- helpers -----
+  // helpers
   boolean isOver() {
     return mouseX >= x && mouseX <= x + w &&
            mouseY >= y && mouseY <= y + h;
   }
 
-  // ----- event hooks -----
+  // event hooks
   void mousePressed() {
-    if (isOver()) armed = true;          // start a potential click
+    if (isOver()) armed = true; // start a potential click
   }
 
-  /** Returns true exactly once when a click completes */
+  // Returns true exactly once when a click happens
   boolean mouseReleased() {
     boolean clicked = armed && isOver(); // press & release both inside
-    armed = false;                       // reset either way
+    armed = false; // reset either way
     return clicked;
   }
 
-  // ----- drawing -----
+  // displaying the button
   void display() {
-    if      (armed)    fill(down);
+    if (armed) fill(down);
     else if (isOver()) fill(hover);
-    else               fill(idle);
+    else fill(idle);
 
     rect(x, y, w, h, 5);
 

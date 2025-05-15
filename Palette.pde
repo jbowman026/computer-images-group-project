@@ -1,3 +1,5 @@
+import javax.swing.JColorChooser;
+
 class Palette {
   
   // array of colors that make up the palette
@@ -8,9 +10,9 @@ class Palette {
   int currentColor;
   // where to draw the palette
   int offsetX, offsetY;    
-  
-  int columns = 8;
-  
+  // number of columns in the pallete
+  int columns = 7;
+  // size of each color
   int swatchSize = 25;
 
   Palette(int defaultColor, int x, int y) {
@@ -71,46 +73,83 @@ class Palette {
     return currentColor;
   }
 
-  void displayPalette() { //<>//
+  void displayPalette() {
+    // because we're including the "add color" swatch
+    int total = count + 1;  
     
-    for (int i = 0; i < count; i++) {
-      
-        int x = i % columns;
-        int y = i / columns;
-        
-        fill(colors[i]);
-        stroke(0);
-        rect(offsetX + x*swatchSize, offsetY + y*swatchSize, swatchSize, swatchSize);
-        
-    }
-  } //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>//
-
-  void selectColor(float mx, float my) {
-    
-    for (int i = 0; i < count; i++) {
+    // logic for drawing each swatch
+    for (int i = 0; i < total; i++) {
       int col = i % columns;
       int row = i / columns;
-      
+      int x   = offsetX + col * swatchSize;
+      int y   = offsetY + row * swatchSize;
+
+      // always draws the "add color" swatch at the end of the rest
+      if (i < count) {
+        fill(colors[i]);
+        stroke(0);
+        rect(x, y, swatchSize, swatchSize);
+      } else {
+        fill(200);
+        stroke(0);
+        rect(x, y, swatchSize, swatchSize);
+        fill(0);
+        textAlign(CENTER, CENTER);
+        text("+", x + swatchSize/2, y + swatchSize/2);
+      }
+    }
+  } //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>//
+  
+  // logic to make sure the correct color is selected
+  void selectColor(float mx, float my) {
+    int total = count + 1;
+    for (int i = 0; i < total; i++) {
+      int col = i % columns;
+      int row = i / columns;
       float x = offsetX + col * swatchSize;
       float y = offsetY + row * swatchSize;
-  
-      if (mx >= x && mx < x + swatchSize &&
-          my >= y && my < y + swatchSize) {
-        currentColor = colors[i];
+
+      if (mx >= x && mx < x + swatchSize
+       && my >= y && my < y + swatchSize) {
+        if (i < count) {
+          currentColor = colors[i];
+        } else {
+          // add new color
+          int picked = showColorChooser();
+          if (picked != currentColor) {
+            addColor(picked);
+            currentColor = picked;
+          }
+        }
         break;
       }
     }
   }
   
   boolean paletteClicked(int mx, int my) {
-    
-  int rows = (count + columns - 1) / columns;  
-  int w = columns * swatchSize;
-  int h = rows * swatchSize;
+    int totalRows = ((count + 1) + columns - 1) / columns;
+    int w = columns   * swatchSize;
+    int h = totalRows * swatchSize;
+    return mx >= offsetX
+        && mx <  offsetX + w
+        && my >= offsetY
+        && my <  offsetY + h;
+  }
   
-  return mx >= palette.offsetX
-      && mx <= palette.offsetX + w
-      && my >= palette.offsetY
-      && my <= palette.offsetY + h;
+  // Pops up a Swing color chooser and returns the selected color
+  private int showColorChooser() {
+    java.awt.Color awt = JColorChooser.showDialog(
+      null,
+      "Pick a new palette color",
+      new java.awt.Color(
+        (currentColor >> 16) & 0xFF,
+        (currentColor >>  8) & 0xFF,
+        (currentColor      ) & 0xFF
+      )
+    );
+    if (awt != null) {
+      return color(awt.getRed(), awt.getGreen(), awt.getBlue());
+    }
+    return currentColor;
   }
 }
