@@ -1,1 +1,1 @@
-my name jeff
+Pixel Art program created in Processing.
